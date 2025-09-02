@@ -25,19 +25,16 @@ const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
 });
 app.use(limiter);
 
-// Routes
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/posts", require("./routes/postRoutes"));
 
-// Health check
 app.get("/", (req, res) => res.json({ status: "OK", ts: Date.now() }));
 
-// Error handling
 app.use(notFound);
 app.use(globalError);
 
@@ -46,7 +43,9 @@ const PORT = process.env.PORT || 5000;
 connectDB()
   .then(seedAdmin)
   .then(() => {
-    app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+    app.listen(PORT, () =>
+      console.log(`🚀 Server running on http://localhost:${PORT}`)
+    );
   })
   .catch((err) => {
     console.error("Failed to start server", err);
