@@ -1,4 +1,5 @@
 const express = require("express");
+const { protect } = require("../middleware/auth");
 const {
   createPost,
   getPosts,
@@ -6,17 +7,15 @@ const {
   updatePost,
   deletePost,
 } = require("../controllers/postController");
-const { protect } = require("../middlewares/authMiddleware");
-const upload = require("../utils/upload");
 
 const router = express.Router();
 
-router.get("/", getPosts);
-router.get("/:id", getPostById);
+router.route("/").get(getPosts).post(protect, createPost);
 
-router.use(protect);
-router.post("/", upload.single("image"), createPost);
-router.patch("/:id", upload.single("image"), updatePost);
-router.delete("/:id", deletePost);
+router
+  .route("/:id")
+  .get(getPostById)
+  .put(protect, updatePost)
+  .delete(protect, deletePost);
 
 module.exports = router;

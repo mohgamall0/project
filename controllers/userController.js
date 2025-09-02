@@ -1,53 +1,53 @@
 const User = require("../models/User");
 
-exports.getUsers = async (req, res, next) => {
+const getUsers = async (req, res) => {
   try {
-    const users = await User.find().select("-password");
+    const users = await User.find({}, "-password");
     res.json(users);
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-exports.getUserById = async (req, res, next) => {
+const getUserById = async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select("-password");
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
     res.json(user);
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-exports.createUser = async (req, res, next) => {
-  try {
-    const user = await User.create(req.body);
-    user.password = undefined;
-    res.status(201).json(user);
-  } catch (err) {
-    next(err);
-  }
-};
-
-exports.updateUser = async (req, res, next) => {
+const updateUser = async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
     }).select("-password");
-    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
     res.json(user);
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-exports.deleteUser = async (req, res, next) => {
+const deleteUser = async (req, res) => {
   try {
     const user = await User.findByIdAndDelete(req.params.id);
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.json({ message: "User deleted" });
-  } catch (err) {
-    next(err);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json({ message: "User removed" });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
   }
 };
+
+module.exports = { getUsers, getUserById, updateUser, deleteUser };

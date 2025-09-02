@@ -1,76 +1,119 @@
 const Post = require("../models/Post");
+const User = require("../models/User");
+const multer = require("multer");
+const path = require("path");
 
-exports.createPost = async (req, res, next) => {
-  try {
-    const post = await Post.create({
-      ...req.body,
-      autherId: req.user._id,
-      image: req.file?.filename,
-    });
-    res.status(201).json(post);
-  } catch (err) {
-    next(err);
-  }
-};
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/posts");
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  },
+});
+const upload = multer({ storage });
 
-exports.getPosts = async (req, res, next) => {
+const createPost = [
+  upload.single("image"),
+  async (req, res) => {
+    const { title, content } = req.body;
+    const authorId = req.user._id;
+
+    try {
+      const post = await Post.create({
+        title,
+        content,
+        authorId,
+        image: req.file ? `/uploads/posts/${req.file.filename}` : "",
+      });
+      res.status(201).json(post);
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  },
+];
+
+const getPosts = async (req, res) => {
   try {
-    const posts = await Post.find().populate("autherId", "name email");
+    const posts = await Post.find().populate("authorId", "name email");
     res.json(posts);
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-exports.getPostById = async (req, res, next) => {
+const getPostById = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id).populate(
-      "autherId",
+      "authorId",
       "name email"
     );
-    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
     res.json(post);
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-exports.updatePost = async (req, res, next) => {
-  try {
-    const updates = { ...req.body };
-    if (req.file) updates.image = req.file.filename;
+const updatePost = [
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      const post = await Post.findById(req.params.id);
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
 
-    // Only allow owner or admin to update
+      if (
+        post.authorId.toString() !== req.user._id.toString() &&
+        req.user.role !== "admin"
+      ) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const updatedData = {
+        title: req.body.title || post.title,
+        content: req.body.content || post.content,
+      };
+
+      if (req.file) {
+        updatedData.image = `/uploads/posts/${req.file.filename}`;
+      }
+
+      const updatedPost = await Post.findByIdAndUpdate(
+        req.params.id,
+        updatedData,
+        { new: true }
+      );
+
+      res.json(updatedPost);
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  },
+];
+
+const deletePost = async (req, res) => {
+  try {
     const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ message: "Post not found" });
-    if (
-      req.user.role !== "admin" &&
-      String(post.autherId) !== String(req.user._id)
-    ) {
-      return res.status(403).json({ message: "Not allowed" });
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
     }
 
-    Object.assign(post, updates);
-    await post.save();
-    res.json(post);
-  } catch (err) {
-    next(err);
-  }
-};
-
-exports.deletePost = async (req, res, next) => {
-  try {
-    const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ message: "Post not found" });
     if (
-      req.user.role !== "admin" &&
-      String(post.autherId) !== String(req.user._id)
+      post.authorId.toString() !== req.user._id.toString() &&
+      req.user.role !== "admin"
     ) {
-      return res.status(403).json({ message: "Not allowed" });
+      return res.status(403).json({ message: "Not authorized" });
     }
+
     await Post.findByIdAndDelete(req.params.id);
-    res.json({ message: "Post deleted" });
-  } catch (err) {
-    next(err);
+    res.json({ message: "Post removed" });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
   }
 };
+
+module.exports = { createPost, getPosts, getPostById, updatePost, deletePost };
